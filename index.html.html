@@ -1,0 +1,380 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Mantenimiento de Flota</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #ff9800;
+            --text-color: #ffffff;
+            --text-muted: #aaaaaa;
+            --border-color: #333333;
+            --danger: #f44336;
+            --warning: #ffeb3b;
+            --info: #2196f3;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            background-color: var(--surface-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+        }
+
+        .view-toggle {
+            background: none;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .view-toggle:hover {
+            background-color: var(--primary-color);
+            color: #000;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+            flex-grow: 1;
+        }
+
+        /* VISTA CHOFER */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--surface-color);
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button.btn-submit {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: 0.3s;
+        }
+
+        button.btn-submit:disabled {
+            background-color: #555;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        button.btn-submit:active:not(:disabled) {
+            background-color: #e68900;
+            transform: translateY(2px);
+        }
+
+        /* VISTA TALLER */
+        .dashboard-view {
+            display: none; /* Oculta al iniciar */
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .badge.alta { background-color: var(--danger); color: white; }
+        .badge.media { background-color: var(--warning); color: #000; }
+        .badge.baja { background-color: var(--info); color: white; }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🚛 GMF Control</h1>
+        <button class="view-toggle" onclick="toggleView()" id="toggleBtn">Ver Pantalla Taller (PC)</button>
+    </header>
+
+    <div class="container">
+        
+        <!-- VISTA 1: CHOFER (CELULAR) -->
+        <div id="chofer-view">
+            <h2 style="margin-bottom: 20px; color: #fff;">Reportar Falla</h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Los datos se enviarán directamente al taller.</p>
+            
+            <form id="reportForm">
+                <div class="form-group">
+                    <label for="camion">ID del Vehículo / Patente</label>
+                    <input type="text" id="camion" placeholder="Ej: CAM-045" required autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label for="problema">Tipo de Problema</label>
+                    <select id="problema" required>
+                        <option value="">Seleccione una opción...</option>
+                        <option value="Motor">Falla de Motor / Mecánica</option>
+                        <option value="Frenos">Problema de Frenos</option>
+                        <option value="Neumáticos">Pinchadura / Neumáticos</option>
+                        <option value="Eléctrico">Falla Eléctrica / Luces</option>
+                        <option value="Otro">Otro problema</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="gravedad">Nivel de Urgencia</label>
+                    <select id="gravedad" required>
+                        <option value="Baja">Baja (Puede seguir, revisión programada)</option>
+                        <option value="Media">Media (Necesita taller pronto)</option>
+                        <option value="Alta">Alta (Peligro, no puede circular)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="descripcion">Detalles (Opcional)</label>
+                    <textarea id="descripcion" rows="3" placeholder="Describa brevemente qué sucedió..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">ENVIAR REPORTE</button>
+            </form>
+        </div>
+
+        <!-- VISTA 2: TALLER (COMPUTADORA) -->
+        <div id="taller-view" class="dashboard-view">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #fff;">Panel de Llegadas - Taller</h2>
+                <span id="syncStatus" style="font-size: 0.8rem; color: #4CAF50;">● Sincronizado</span>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Vehículo</th>
+                            <th>Problema</th>
+                            <th>Urgencia</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-taller">
+                        <!-- Estado inicial -->
+                        <tr id="fila-vacia">
+                            <td colspan="5" style="text-align: center; color: #888;">Cargando datos del taller...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Mensaje flotante de éxito -->
+    <div class="toast" id="toastMsg">✅ Reporte guardado exitosamente</div>
+
+    <script>
+        // LA NUEVA URL QUE CREASTE HOY
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby-AsFAVwbcIVUD9kERQ9xLCd8u-WFxL2euBXDpgx2SVt95-AQGhi4Gp5QwAiM2VHZ3/exec';
+
+        // Lógica de cuando el chofer presiona "ENVIAR"
+        document.getElementById('reportForm').addEventListener('submit', function(e) {
+            e.preventDefault(); 
+
+            const btn = document.getElementById('submitBtn');
+            btn.textContent = 'ENVIANDO...';
+            btn.disabled = true;
+
+            const ahora = new Date();
+            const horaStr = ahora.getHours().toString().padStart(2, '0') + ':' + ahora.getMinutes().toString().padStart(2, '0');
+
+            const params = new URLSearchParams();
+            params.append('camion', document.getElementById('camion').value.toUpperCase());
+            params.append('problema', document.getElementById('problema').value);
+            params.append('gravedad', document.getElementById('gravedad').value);
+            params.append('descripcion', document.getElementById('descripcion').value);
+            params.append('hora', horaStr);
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
+            }).then(() => {
+                const toast = document.getElementById('toastMsg');
+                toast.style.display = 'block';
+                setTimeout(() => { toast.style.display = 'none'; }, 3000);
+
+                this.reset();
+                btn.textContent = 'ENVIAR REPORTE';
+                btn.disabled = false;
+
+                cargarDatosTaller();
+            }).catch(error => {
+                alert('Hubo un error de conexión al intentar guardar.');
+                btn.textContent = 'ENVIAR REPORTE';
+                btn.disabled = false;
+            });
+        });
+
+        // Lógica para descargar los datos de la planilla nueva
+        function cargarDatosTaller() {
+            const status = document.getElementById('syncStatus');
+            if(status) {
+                status.textContent = '🔄 Actualizando...';
+                status.style.color = '#ff9800';
+            }
+
+            fetch(SCRIPT_URL)
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('tabla-taller');
+                    tbody.innerHTML = ''; 
+                    
+                    // FILTRO ESTRICTO: Descartar filas basura o vacías de Sheets
+                    const reportesValidos = (data || []).filter(rep => {
+                        return rep.camion && 
+                               String(rep.camion).trim() !== '' && 
+                               String(rep.hora).toUpperCase() !== 'FALSE';
+                    });
+
+                    if (reportesValidos.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">No hay reportes activos...</td></tr>';
+                    } else {
+                        [...reportesValidos].reverse().forEach(rep => {
+                            let claseGravedad = rep.gravedad ? rep.gravedad.toLowerCase() : 'baja';
+                            
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${rep.hora}</td>
+                                <td><strong>${rep.camion}</strong></td>
+                                <td>${rep.problema}</td>
+                                <td><span class="badge ${claseGravedad}">${rep.gravedad}</span></td>
+                                <td style="color: var(--primary-color);">${rep.estado || 'En camino'}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                    if(status) {
+                        status.textContent = '● Sincronizado';
+                        status.style.color = '#4CAF50';
+                    }
+                })
+                .catch(error => {
+                    if(status) {
+                        status.textContent = '✖ Error de conexión';
+                        status.style.color = '#f44336';
+                    }
+                });
+        }
+
+        // Cambio de vista
+        function toggleView() {
+            const btn = document.getElementById('toggleBtn');
+            const vChofer = document.getElementById('chofer-view');
+            const vTaller = document.getElementById('taller-view');
+
+            if(vChofer.style.display === 'none') {
+                vChofer.style.display = 'block';
+                vTaller.style.display = 'none';
+                btn.textContent = 'Ver Pantalla Taller (PC)';
+            } else {
+                vChofer.style.display = 'none';
+                vTaller.style.display = 'block';
+                btn.textContent = 'Volver a Pantalla Chofer';
+                cargarDatosTaller();
+            }
+        }
+
+        setInterval(cargarDatosTaller, 15000);
+    </script>
+</body>
+</html>
